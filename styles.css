@@ -1,0 +1,49 @@
+.pear-date {
+	display: inline-block;
+	font-size: 0.8em;
+	background: var(--background-primary-alt);
+	color: var(--text-muted);
+	padding: 0.1em 0.5em;
+	border-radius: 5px;
+	margin: 0.175em 5px;
+	user-select: none;
+	vertical-align: middle;
+	transform: translateX(-2.5em);
+}
+
+.pear-floating {
+	float: right;
+}
+
+li[data-task="x"] .pear-date, li[data-task=">"] .pear-date {
+	background: var(--color-green) !important;
+	color: var(--background-primary-alt) !important;
+}
+
+li[data-task="-"] > :not(.list-bullet) {
+	color: var(--text-faint) !important;
+	pointer-events: none;
+	user-select: none;
+	text-decoration: line-through;
+}
+
+li[data-task="-"] .pear-date {
+	background: var(--background-primary-alt) !important;
+}
+
+li[data-task="!"]::before {
+	content: "";
+	display: block;
+	position: absolute;
+	left: -2em;
+	height: 100%;
+	width: calc(100% + 2em);
+	background: rgba(var(--color-orange-rgb), 0.1);
+	pointer-events: none;
+/*	border-radius: 5px;*/
+}
+
+.pear-overdue {
+	background: var(--color-red);
+	color: var(--background-primary-alt);
+}

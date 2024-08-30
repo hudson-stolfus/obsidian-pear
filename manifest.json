@@ -1,0 +1,11 @@
+{
+	"id": "obsidian-pear",
+	"name": "Pear TODO",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Making TODO the way I want.",
+	"author": "@hudson.has.a.wrench",
+	"authorUrl": "https://github.com/Coralid",
+	"fundingUrl": "https://account.venmo.com/u/Hudson-Stolfus",
+	"isDesktopOnly": false
+}
