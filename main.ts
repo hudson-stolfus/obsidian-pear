@@ -20,6 +20,8 @@ const DEFAULT_SETTINGS: PearPluginSettings = {
 	floatingDates: false
 }
 
+const dateTimeRegex = /@[0-9]{1,2}\/[0-9]{1,2}(\/[0-9]{2,4})?( [1-9]{1,2}(:[0-9]{2})?([ap]m)?)?/g;
+
 export default class PearPlugin extends Plugin {
 	settings: PearPluginSettings;
 
@@ -44,16 +46,17 @@ export default class PearPlugin extends Plugin {
 		}
 
 		const getDate = (source: string): Moment => {
-			const dateSearch = source.search(/@[0-9/ -]*/g);
+			const dateSearch = source.search(dateTimeRegex);
 			if (dateSearch === -1) return moment.invalid();
-			return moment(source.substring( + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]);
+			if (source.substring(dateSearch + 1).search(/@[0-9]{1,2}\/[0-9]{1,2}(\/[0-9]{2,4})?( [1-9]{1,2}(:[0-9]{2})?([ap]m)?)/g) === -1) return moment(source.substring(dateSearch + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]).set({ hour: 23, minute: 59, second: 59 });
+			return moment(source.substring(dateSearch + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]);
 		}
 
 		this.registerMarkdownPostProcessor((element, context) => {
 			const tasks = element.findAll('li.task-list-item');
 			for (const task of tasks) {
 				for (const node of getTextNodes(task)) {
-					const searchAt = node.textContent?.search(/@[0-9/ -]*/g);
+					const searchAt = node.textContent?.search(dateTimeRegex);
 					if (searchAt !== -1) {
 						const dueDate = getDate(node.textContent ?? "");
 						const dateHint = task.createDiv({
