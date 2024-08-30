@@ -44,7 +44,9 @@ export default class PearPlugin extends Plugin {
 		}
 
 		const getDate = (source: string): Moment => {
-			return moment(source.substring(source.search(/@[0-9/-]*/g) + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]);
+			const dateSearch = source.search(/@[0-9/-]*/g);
+			if (dateSearch === -1) return moment.invalid();
+			return moment(source.substring( + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]);
 		}
 
 		this.registerMarkdownPostProcessor((element, context) => {
@@ -91,7 +93,7 @@ export default class PearPlugin extends Plugin {
 						if (currentIndent > previousIndent) {
 							completedParentTaskPos = i - 1;
 							if (state.doc.sliceString(task_box, task_box + 1) != 'x') {
-								const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(/- \[[^\/ <]] /g);
+								const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(/- \[[^/ <]] /g);
 								const parentTaskBox = parentTaskSearch + state.doc.line(completedParentTaskPos).from + 3;
 								completedParentTaskPos = undefined;
 								if (parentTaskSearch != -1) {
@@ -102,7 +104,7 @@ export default class PearPlugin extends Plugin {
 							}
 						} else if (previousIndent == currentIndent && state.doc.sliceString(task_box, task_box + 1) != 'x') {
 							if (completedParentTaskPos) {
-								const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(/- \[[^\/ [<]] /g);
+								const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(/- \[[^/ [<]] /g);
 								const parentTaskBox = parentTaskSearch + state.doc.line(completedParentTaskPos).from + 3;
 								if (parentTaskSearch != -1) {
 									dispatch(state.update({
@@ -113,7 +115,7 @@ export default class PearPlugin extends Plugin {
 							completedParentTaskPos = undefined;
 							// TODO: Hanging subtasks
 						} else if (currentIndent < previousIndent && completedParentTaskPos) {
-							const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(/- \[[\/ *!<n?]] /g);
+							const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(/- \[[/ *!<n?]] /g);
 							const parentTaskBox = parentTaskSearch + state.doc.line(completedParentTaskPos).from + 3;
 							if (parentTaskSearch != -1) {
 								dispatch(state.update({
@@ -168,7 +170,7 @@ export default class PearPlugin extends Plugin {
 			editorCallback: (editor: Editor) => {
 				const cursor = editor.getCursor("head");
 				const line = editor.getLine(cursor.line);
-				const task_search = line.search(/- \[[\/ ]] /g);
+				const task_search = line.search(/- \[[/ ]] /g);
 				if (task_search != -1) {
 					const task_box = {
 						from: { line: cursor.line, ch: task_search + 3 } as EditorPosition,
