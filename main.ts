@@ -44,7 +44,7 @@ export default class PearPlugin extends Plugin {
 		}
 
 		const getDate = (source: string): Moment => {
-			const dateSearch = source.search(/@[0-9/-]*/g);
+			const dateSearch = source.search(/@[0-9/ -]*/g);
 			if (dateSearch === -1) return moment.invalid();
 			return moment(source.substring( + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]);
 		}
@@ -53,7 +53,7 @@ export default class PearPlugin extends Plugin {
 			const tasks = element.findAll('li.task-list-item');
 			for (const task of tasks) {
 				for (const node of getTextNodes(task)) {
-					const searchAt = node.textContent?.search(/@[0-9/-]*/g);
+					const searchAt = node.textContent?.search(/@[0-9/ -]*/g);
 					if (searchAt !== -1) {
 						const dueDate = getDate(node.textContent ?? "");
 						const dateHint = task.createDiv({
