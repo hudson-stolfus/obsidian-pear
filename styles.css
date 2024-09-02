@@ -10,6 +10,25 @@
 	vertical-align: middle;
 }
 
+.pear-dropdown-closed, .pear-dropdown-open {
+	vertical-align: text-bottom;
+}
+
+.pear-dropdown-closed {
+	transform: rotate(-90deg);
+}
+
+.pear-completed-dropdown {
+	color: var(--text-faint);
+	margin-top: 0 !important;
+	cursor: pointer;
+	user-select: none;
+}
+
+.pear-hidden {
+	display: none;
+}
+
 .pear-floating {
 	float: right;
 }
