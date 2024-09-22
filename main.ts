@@ -7,7 +7,6 @@ import {
 } from 'obsidian';
 import {EditorView} from "@codemirror/view";
 import {Moment} from "moment";
-import * as regexpp from "regexpp";
 
 interface PearPluginSettings {
 	dateFormat: string;
@@ -37,6 +36,7 @@ export default class PearPlugin extends Plugin {
 			return match ? match[0].length : 0;
 		}
 
+		// @ts-ignore
 		const checkTask = (type: regexpp|string): regexpp => {
 			if (typeof type === "string") return new RegExp(/(?<=\n\s*)- \[/g.source + type + /] /g.source);
 			else return new RegExp(/(?<=^\s*)- \[/g.source + type.source + /] /g.source);
@@ -56,7 +56,8 @@ export default class PearPlugin extends Plugin {
 		const getDate = (source: string): Moment => {
 			const dateSearch = source.search(dateTimeRegex);
 			if (dateSearch === -1) return moment.invalid();
-			if (source.substring(dateSearch + 1).search(/@\d{1,2}\/\d{1,2}(\/\d{2,4})?( \d{1,2}(:\d{2})?([ap]m)?)/g) === -1) return moment(source.substring(dateSearch + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]).set({ hour: 23, minute: 59, second: 59 });
+			console.log(source.substring(dateSearch), source.substring(dateSearch).search(/\d{1,2}((:\d{2}[ap]m?)|(:\d{2})|([ap]m?))/g));
+			if (source.substring(dateSearch + 1).search(/\d{1,2}((:\d{2}[ap]m?)|(:\d{2})|([ap]m?))/g) === -1) return moment(source.substring(dateSearch + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]).set({ hour: 23, minute: 59, second: 59 });
 			return moment(source.substring(dateSearch + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]);
 		}
 
@@ -148,7 +149,6 @@ export default class PearPlugin extends Plugin {
 								}
 							}
 							completedParentTaskPos = undefined;
-							// TODO: Hanging subtasks
 						} else if (currentIndent < previousIndent && completedParentTaskPos) {
 							const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(checkTask(/[ *!<n?]/g));
 							const parentTaskBox = parentTaskSearch + state.doc.line(completedParentTaskPos).from + 3;
