@@ -1,180 +1,97 @@
 import {
 	App,
-	Editor, EditorPosition, Hotkey, moment,
+	Editor, Hotkey,
 	Plugin,
 	PluginSettingTab,
-	Setting
+	Setting, MarkdownView,
 } from 'obsidian';
 import {EditorView} from "@codemirror/view";
-import {Moment} from "moment";
-
-interface PearPluginSettings {
-	dateFormat: string;
-	simpleDateFormat: string;
-	floatingDates: boolean;
-	hideCompleted: boolean;
-}
+import DurationConstructor = moment.unitOfTime.DurationConstructor;
+import {Task, COMPLETE, DEFAULT} from "./task";
+import {PearPluginSettings} from "./settings";
 
 const DEFAULT_SETTINGS: PearPluginSettings = {
-	dateFormat: "YYYY-MM-DD HH:mm",
-	simpleDateFormat: "MM-DD HH:mm",
+	dateFormats: [ "YYYY-MM-DD HH:mm" ],
 	floatingDates: false,
 	hideCompleted: true,
+	schedulingEnabled: true,
+	showPeriod: { period: 2, unit: "weeks" }
 }
-
-const dateTimeRegex = /@\d{1,2}\/\d{1,2}(\/\d{2,4})?( \d{1,2}(:\d{2})?([ap]m)?)?/g;
 
 export default class PearPlugin extends Plugin {
 	settings: PearPluginSettings;
+	cache: { [key: string]: Task } = {};
+
+	generateId() {
+		let result;
+		do result = Math.floor(Math.random()*(2**24-1)).toString(16).padStart(6, '0');
+		while (this.cache[result] != undefined);
+		return result;
+	}
 
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new PearSettingTab(this.app, this));
 
-		const getIndent = (str: string): number => {
-			const match = str.match(/^\s*/);
-			return match ? match[0].length : 0;
-		}
+		this.registerMarkdownPostProcessor((element, context) => {
+			const sequentialTaskIds = context.getSectionInfo(element)?.text.match(/(?<=- \[.] .*\^pear-)[\da-f]{6}/g);
+			const taskEls = element.findAll('li.task-list-item');
 
-		// @ts-ignore
-		const checkTask = (type: regexpp|string): regexpp => {
-			if (typeof type === "string") return new RegExp(/(?<=\n\s*)- \[/g.source + type + /] /g.source);
-			else return new RegExp(/(?<=^\s*)- \[/g.source + type.source + /] /g.source);
-		}
-
-		const getTextNodes = (el: HTMLElement): Node[] => {
-			const result: Node[] = [];
-			let break_out = false;
-			el.childNodes.forEach(node => {
-				if (node.nodeName == 'UL') break_out = true;
-				if (break_out) return;
-				if (node.textContent) result.push(node);
-			});
-			return result;
-		}
-
-		const getDate = (source: string): Moment => {
-			const dateSearch = source.search(dateTimeRegex);
-			if (dateSearch === -1) return moment.invalid();
-			console.log(source.substring(dateSearch), source.substring(dateSearch).search(/\d{1,2}((:\d{2}[ap]m?)|(:\d{2})|([ap]m?))/g));
-			if (source.substring(dateSearch + 1).search(/\d{1,2}((:\d{2}[ap]m?)|(:\d{2})|([ap]m?))/g) === -1) return moment(source.substring(dateSearch + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]).set({ hour: 23, minute: 59, second: 59 });
-			return moment(source.substring(dateSearch + 1).trim(), [ this.settings.simpleDateFormat, this.settings.dateFormat ]);
-		}
-
-		this.registerMarkdownPostProcessor((element) => {
-			const tasks = element.findAll('li.task-list-item');
-			for (const task of tasks) {
-				if (this.settings.hideCompleted && ['x', '-'].contains(task.getAttr("data-task") ?? '')) {
-					task.addClass("pear-hidden");
-				}
-				for (const node of getTextNodes(task)) {
-					const searchAt = node.textContent?.search(dateTimeRegex);
-					if (searchAt !== -1) {
-						const dueDate = getDate(node.textContent ?? "");
-						const dateHint = task.createDiv({
-							cls: `pear-date${(dueDate < moment()) ? " pear-overdue" : ""}${this.settings.floatingDates ? " pear-floating" : ""}`,
-							text: dueDate.format(this.settings.dateFormat)
-						});
-						dateHint.addEventListener("mouseenter", (event) => {
-							// @ts-ignore
-							event.target.innerText = dueDate?.format("dddd, MMMM Do, YYYY h:mma") ?? "";
-						});
-						dateHint.addEventListener("mouseleave", (event) => {
-							// @ts-ignore
-							event.target.innerText = dueDate?.format(this.settings.dateFormat) ?? "";
-						});
-						node.textContent = node.textContent?.substr(0, searchAt) ?? "";
-						// @ts-ignore
-						node.after(dateHint);
+			for (const [index, taskEl] of taskEls.entries()) {
+				let taskId = sequentialTaskIds?.[index];
+				if (taskId != undefined) {
+					if (this.cache[taskId] == undefined) {
+						let file = this.app.vault.getFileByPath(context.sourcePath);
+						if (file) this.cache[taskId] = new Task(taskId, file, this);
 					}
+					this.cache[taskId].attachPreviewResult(taskEl);
+					this.cache[taskId].updatePromise.then(() => {
+						if (taskId != undefined) this.cache[taskId].render();
+					});
 				}
-			}
-			const completedTasks: HTMLElement[] = element.findAll('.pear-hidden');
-			if (completedTasks.length !== 0 && this.settings.hideCompleted) {
-				element.find('ul.contains-task-list').style.marginBottom = "0";
-				let dropdownOpen = false;
-				const completedTaskDropdown = element.createEl('ul', 'pear-completed-dropdown');
-				completedTaskDropdown.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon pear-dropdown-closed"><path d="m6 9 6 6 6-6"></path></svg> ${completedTasks.length} hidden task${completedTasks.length == 1 ? "" : "s"}`;
-				completedTaskDropdown.onclick = (event) => {
-					// @ts-ignore
-					if (event.target.nodeName === 'INPUT') return;
-					dropdownOpen = !dropdownOpen;
-					completedTaskDropdown.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon pear-dropdown-${dropdownOpen ? "open" : "closed"}"><path d="m6 9 6 6 6-6"></path></svg> ${completedTasks.length} hidden task${completedTasks.length == 1 ? "" : "s"}`;
-					for (const task of completedTasks) {
-						if (dropdownOpen) task.removeClass("pear-hidden");
-						else task.addClass("pear-hidden");
-						completedTaskDropdown.appendChild(task);
-					}
-				}
-				element.appendChild(completedTaskDropdown);
 			}
 		});
 
-		this.registerEditorExtension(EditorView.updateListener.of((update): boolean => {
+		this.registerInterval(window.setInterval(() => {
+			for (const cachedTaskId in this.cache) {
+				// this.cache[cachedTaskId].render();
+			}
+		}, 1000));
+
+		this.registerEditorExtension(EditorView.updateListener.of((update): void => {
 			const { state, dispatch } = update.view;
-			let completedParentTaskPos:undefined|number;
 
+			if (this.app.workspace.activeEditor == null) return;
 			for (let i = 1; i <= state.doc.lines; i ++) {
-				const line = state.doc.line(i);
-				const task_search = line.text.search(checkTask(/./g));
-				console.log(line.text);
-				if (task_search != -1) {
-					const task_box = task_search + line.from + 3;
-					const task = line.text.substring(task_box - line.from + 3, line.to);
-
-					// Automatic fulfill parent task
-					if (i >= 2) {
-						const currentIndent = getIndent(line.text);
-						const previousIndent = getIndent(state.doc.line(i - 1).text);
-						if (currentIndent > previousIndent) {
-							completedParentTaskPos = i - 1;
-							if (state.doc.sliceString(task_box, task_box + 1) != 'x') {
-								const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(/(?<=\n\s*)- \[[^/ <]] /g);
-								const parentTaskBox = parentTaskSearch + state.doc.line(completedParentTaskPos).from + 3;
-								completedParentTaskPos = undefined;
-								if (parentTaskSearch != -1) {
-									dispatch(state.update({
-										changes: {from: parentTaskBox, insert: "/", to: parentTaskBox + 1}
-									}));
-								}
+				let line = state.doc.line(i);
+				if (line.text.search(/- \[.] /g) != -1) {
+					const checkedId = line.text.match(/(?<=\^pear-)[\da-f]{6}$/g)?.[0];
+					const taskId = checkedId ?? this.generateId();
+					const writePos = line.text.search(/ \^pear-/g)
+					if (checkedId == undefined) {
+						dispatch(state.update({
+							changes: {
+								from:  (writePos == -1) ? line.to: line.from + writePos,
+								insert: ` ^pear-${taskId}`,
+								to: line.to
 							}
-						} else if (previousIndent == currentIndent && state.doc.sliceString(task_box, task_box + 1) != 'x') {
-							if (completedParentTaskPos) {
-								const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(checkTask(/[^/ [<]/g));
-								const parentTaskBox = parentTaskSearch + state.doc.line(completedParentTaskPos).from + 3;
-								if (parentTaskSearch != -1) {
-									dispatch(state.update({
-										changes: {from: parentTaskBox, insert: "/", to: parentTaskBox + 1}
-									}));
-								}
-							}
-							completedParentTaskPos = undefined;
-						} else if (currentIndent < previousIndent && completedParentTaskPos) {
-							const parentTaskSearch = state.doc.line(completedParentTaskPos).text.search(checkTask(/[ *!<n?]/g));
-							const parentTaskBox = parentTaskSearch + state.doc.line(completedParentTaskPos).from + 3;
-							if (parentTaskSearch != -1) {
-								dispatch(state.update({
-									changes: {from: parentTaskBox, insert: "x", to: parentTaskBox + 1}
-								}));
-							}
-							completedParentTaskPos = undefined;
+						}));
+						return;
+					}
+					const file = this.app.workspace.getActiveFile();
+					if (file) this.cache[taskId] = new Task(taskId, file, this);
+				}
+				if (line.text.match(/^(- \[ ] )?\^pear-[\da-f]{6}$/g)?.[0] != undefined) {
+					delete this.cache[line.text.match(/(?<=- \[.] .*\^pear-)[\da-f]{6}/g)?.[0] ?? "uncached"];
+					dispatch(state.update({
+						changes: {
+							from: line.from,
+							insert: '',
+							to: line.to
 						}
-					}
-
-					// Automatic scheduling status
-					console.log(getDate(task));
-					if (getDate(task).isValid() && state.doc.sliceString(task_box, task_box + 1) == "<") {
-						dispatch(state.update({
-							changes: {from: task_box, insert: " ", to: task_box + 1}
-						}));
-					} else if (!getDate(task).isValid() && state.doc.sliceString(task_box, task_box + 1) == " ") {
-						dispatch(state.update({
-							changes: {from: task_box, insert: "<", to: task_box + 1}
-						}));
-					}
+					}));
 				}
 			}
-			return false;
 		}));
 
 		this.addCommand({
@@ -184,62 +101,24 @@ export default class PearPlugin extends Plugin {
 				{ key: 'x', modifiers: [ "Alt" ] } as Hotkey
 			],
 			editorCallback: (editor: Editor) => {
-				const cursor = editor.getCursor("head");
-				const line = editor.getLine(cursor.line);
-				const task_search = line.search(checkTask(/[x ]] /g));
-				if (task_search != -1) {
-					const task_box = {
-						from: { line: cursor.line, ch: task_search + 3 } as EditorPosition,
-						to: { line: cursor.line, ch: task_search + 4 } as EditorPosition
-					};
-					editor.replaceRange(line.charAt(task_search + 3) == 'x' ? ' ' : 'x', task_box.from, task_box.to);
-				}
-			},
-		});
-
-		this.addCommand({
-			id: "mark-task-partially-complete",
-			name: "Mark task partially complete",
-			hotkeys: [
-				{ key: '/', modifiers: [ "Alt" ] } as Hotkey
-			],
-			editorCallback: (editor: Editor) => {
-				const cursor = editor.getCursor("head");
-				const line = editor.getLine(cursor.line);
-				const task_search = line.search(checkTask(/[/ ]/g));
-				if (task_search != -1) {
-					const task_box = {
-						from: { line: cursor.line, ch: task_search + 3 } as EditorPosition,
-						to: { line: cursor.line, ch: task_search + 4 } as EditorPosition
-					};
-					editor.replaceRange(line.charAt(task_search + 3) == '/' ? ' ' : '/', task_box.from, task_box.to);
-				}
-			},
-		});
-
-		this.addCommand({
-			id: "mark-task-removed",
-			name: "Mark task removed",
-			hotkeys: [
-				{ key: '-', modifiers: [ "Alt" ] } as Hotkey
-			],
-			editorCallback: (editor: Editor) => {
-				const cursor = editor.getCursor("head");
-				const line = editor.getLine(cursor.line);
-				const task_search = line.search(checkTask(/[- ]/g));
-				if (task_search != -1) {
-					const task_box = {
-						from: { line: cursor.line, ch: task_search + 3 } as EditorPosition,
-						to: { line: cursor.line, ch: task_search + 4 } as EditorPosition
-					};
-					editor.replaceRange(line.charAt(task_search + 3) == '-' ? ' ' : '-', task_box.from, task_box.to);
+				for (let taskId in this.cache) {
+					if (this.app.workspace.getActiveViewOfType(MarkdownView)?.file == this.cache[taskId].file && this.cache[taskId].line == editor.getCursor("head").line) {
+						switch (this.cache[taskId].getStatus()) {
+							case COMPLETE:
+								this.cache[taskId].setStatus(DEFAULT);
+								break;
+							default:
+								this.cache[taskId].setStatus(COMPLETE);
+								break;
+						}
+					}
 				}
 			},
 		});
 	}
 
-	onunload() {
-
+	async onunload() {
+		await this.saveSettings();
 	}
 
 	async loadSettings() {
@@ -247,7 +126,7 @@ export default class PearPlugin extends Plugin {
 	}
 
 	async saveSettings() {
-		await this.saveData(this.settings);
+		await this.saveData(Object.assign({}, this.settings));
 	}
 }
 
@@ -269,21 +148,10 @@ class PearSettingTab extends PluginSettingTab {
 			.setName('Date Format')
 			.setDesc('General format for Pear dates')
 			.addText(text => text
-				.setValue(this.plugin.settings.dateFormat)
+				.setValue(this.plugin.settings.dateFormats.join(', '))
 				.setPlaceholder("YYYY-MM-DD HH:mm")
 				.onChange(async (value) => {
-					this.plugin.settings.dateFormat = value;
-					await this.plugin.saveSettings();
-				})
-			);
-		new Setting(containerEl)
-			.setName('Simple Date Format')
-			.setDesc('Simpler format for Pear dates, for when typing the year is redundant')
-			.addText(text => text
-				.setValue(this.plugin.settings.simpleDateFormat)
-				.setPlaceholder("MM-DD HH:mm")
-				.onChange(async (value) => {
-					this.plugin.settings.simpleDateFormat = value;
+					this.plugin.settings.dateFormats = value.split(', ');
 					await this.plugin.saveSettings();
 				})
 			);
@@ -304,6 +172,37 @@ class PearSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.hideCompleted)
 				.onChange(async (value) => {
 					this.plugin.settings.hideCompleted = value;
+					await this.plugin.saveSettings();
+				})
+			)
+		new Setting(containerEl)
+			.setName('Scheduling tasks')
+			.setDesc('Mark tasks as scheduling when no date is provided')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.schedulingEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings.schedulingEnabled = value;
+					await this.plugin.saveSettings();
+				})
+			)
+		new Setting(containerEl)
+			.setName('Scheduling tasks')
+			.setDesc('Mark tasks as scheduling when no date is provided')
+			.addText(text => text
+				.setValue(this.plugin.settings.showPeriod.period.toString())
+				.onChange(async (value) => {
+					this.plugin.settings.showPeriod.period = Number(value);
+					await this.plugin.saveSettings();
+				})
+			)
+			.addDropdown(momentFormat => momentFormat
+				.addOption("hours", "Hours")
+				.addOption("days", "Days")
+				.addOption("weeks", "Weeks")
+				.addOption("months", "Months")
+				.setValue(this.plugin.settings.showPeriod.unit)
+				.onChange(async (value) => {
+					this.plugin.settings.showPeriod.unit = value as DurationConstructor;
 					await this.plugin.saveSettings();
 				})
 			)
