@@ -20,76 +20,46 @@ const DEFAULT_SETTINGS: PearPluginSettings = {
 
 export default class PearPlugin extends Plugin {
 	settings: PearPluginSettings;
-	cache: { [key: string]: Task } = {};
-
-	generateId() {
-		let result;
-		do result = Math.floor(Math.random()*(2**24-1)).toString(16).padStart(6, '0');
-		while (this.cache[result] != undefined);
-		return result;
-	}
 
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new PearSettingTab(this.app, this));
 
 		this.registerMarkdownPostProcessor((element, context) => {
-			const sequentialTaskIds = context.getSectionInfo(element)?.text.match(/(?<=- \[.] .*\^pear-)[\da-f]{6}/g);
-			const taskEls = element.findAll('li.task-list-item');
+			const sectionInfo = context.getSectionInfo(element);
+			const file = this.app.vault.getFileByPath(context.sourcePath);
+			if (!sectionInfo || !file) return;
+			let cache: {[key: number]: Task} = {};
 
-			for (const [index, taskEl] of taskEls.entries()) {
-				let taskId = sequentialTaskIds?.[index];
-				if (taskId != undefined) {
-					if (this.cache[taskId] == undefined) {
-						let file = this.app.vault.getFileByPath(context.sourcePath);
-						if (file) this.cache[taskId] = new Task(taskId, file, this);
-					}
-					this.cache[taskId].attachPreviewResult(taskEl);
-					this.cache[taskId].updatePromise.then(() => {
-						if (taskId != undefined) this.cache[taskId].render();
-					});
+			for (const [line, lineText] of sectionInfo.text.split('\n').entries()) {
+				if (lineText.search(/^(\t| {2})*- \[.] /g) != -1) {
+					cache[line] = new Task(lineText, file, this);
 				}
+			}
+
+			const taskEls = element.findAll('li.task-list-item');
+			for (const [index, taskEl] of taskEls.entries()) {
+				const queue = cache[sectionInfo.lineStart + Number(taskEl.getAttr('data-line') ?? -1)];
+				if (!queue) return;
+				queue.attachPreviewResult(taskEl);
+				queue.render();
 			}
 		});
 
 		this.registerInterval(window.setInterval(() => {
-			for (const cachedTaskId in this.cache) {
-				// this.cache[cachedTaskId].render();
-			}
+
 		}, 1000));
 
 		this.registerEditorExtension(EditorView.updateListener.of((update): void => {
 			const { state, dispatch } = update.view;
+			const file = this.app.workspace.getActiveFile();
+			let cache: {[key: number]: Task} = {};
 
 			if (this.app.workspace.activeEditor == null) return;
-			for (let i = 1; i <= state.doc.lines; i ++) {
-				let line = state.doc.line(i);
-				if (line.text.search(/- \[.] /g) != -1) {
-					const checkedId = line.text.match(/(?<=\^pear-)[\da-f]{6}$/g)?.[0];
-					const taskId = checkedId ?? this.generateId();
-					const writePos = line.text.search(/ \^pear-/g)
-					if (checkedId == undefined) {
-						dispatch(state.update({
-							changes: {
-								from:  (writePos == -1) ? line.to: line.from + writePos,
-								insert: ` ^pear-${taskId}`,
-								to: line.to
-							}
-						}));
-						return;
-					}
-					const file = this.app.workspace.getActiveFile();
-					if (file) this.cache[taskId] = new Task(taskId, file, this);
-				}
-				if (line.text.match(/^(- \[ ] )?\^pear-[\da-f]{6}$/g)?.[0] != undefined) {
-					delete this.cache[line.text.match(/(?<=- \[.] .*\^pear-)[\da-f]{6}/g)?.[0] ?? "uncached"];
-					dispatch(state.update({
-						changes: {
-							from: line.from,
-							insert: '',
-							to: line.to
-						}
-					}));
+
+			if (file) for (let i = 1; i <= state.doc.lines; i ++) {
+				if (state.doc.line(i).text.search(/^\s*- \[.] /g) != -1) {
+					cache[i] = new Task(state.doc.line(i).text, file, this);
 				}
 			}
 		}));
@@ -101,18 +71,18 @@ export default class PearPlugin extends Plugin {
 				{ key: 'x', modifiers: [ "Alt" ] } as Hotkey
 			],
 			editorCallback: (editor: Editor) => {
-				for (let taskId in this.cache) {
-					if (this.app.workspace.getActiveViewOfType(MarkdownView)?.file == this.cache[taskId].file && this.cache[taskId].line == editor.getCursor("head").line) {
-						switch (this.cache[taskId].getStatus()) {
-							case COMPLETE:
-								this.cache[taskId].setStatus(DEFAULT);
-								break;
-							default:
-								this.cache[taskId].setStatus(COMPLETE);
-								break;
-						}
-					}
-				}
+				// for (let taskId in this.cache) {
+				// 	if (this.app.workspace.getActiveViewOfType(MarkdownView)?.file == this.cache[taskId].file && this.cache[taskId].line == editor.getCursor("head").line) {
+				// 		switch (this.cache[taskId].getStatus()) {
+				// 			case COMPLETE:
+				// 				this.cache[taskId].setStatus(DEFAULT);
+				// 				break;
+				// 			default:
+				// 				this.cache[taskId].setStatus(COMPLETE);
+				// 				break;
+				// 		}
+				// 	}
+				// }
 			},
 		});
 	}

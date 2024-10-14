@@ -2,6 +2,7 @@ import {Attachment} from "./attachment";
 import {TFile} from "obsidian";
 import {Deadline} from "./deadline";
 import PearPlugin from "./main";
+import {ViewUpdate} from "@codemirror/view";
 
 const DEFAULT: string 		= ' ';
 const COMPLETE: string 		= 'x';
@@ -23,40 +24,18 @@ class Task {
 
 	public hidden: boolean = false;
 	public attachments: Attachment[] = [];
-	public raw: string;
-	public line: number;
 	public parent: Task|undefined;
 	public element: HTMLElement | null;
-	public updatePromise: Promise<void>;
+	public hash: string;
 
-	constructor(public id: string, public file: TFile, private plugin: PearPlugin) {
-		this.updatePromise = this.update().then(() => {
-			if (this.raw == undefined || this.line == undefined) {
-				throw new Error(`Failed to initialize task pear-${this.id}: RAW NOT FOUND`);
-			}
-			if (this.raw.search(/(?<=@)\d{1,2}\/\d{1,2}(\/\d{2,4})?( \d{1,2}(:\d{2})?([ap]m)?)?/g) != -1) {
-				new Deadline(this, plugin);
-			}
-		});
+	constructor(public raw: string, public file: TFile, private plugin: PearPlugin) {
+		if (this.raw.search(/(?<=@)\d{1,2}\/\d{1,2}(\/\d{2,4})?( \d{1,2}(:\d{2})?([ap]m)?)?/g) != -1) {
+			new Deadline(this, plugin);
+		}
 	}
 
-	async update() {
-		const data = (await this.file.vault.adapter.read(this.file.path)).split('\n');
-		for (let i = 0; i < data.length; i ++) {
-			if (data[i].search(new RegExp(`\\^pear-${this.id}`)) != -1) {
-				this.line = i;
-				this.raw = data[i];
-				const indent = this.raw.match(/(?<=^\s*?)(\t| {2})/g)?.length;
-				if (indent != undefined){
-					for (let j = i - 1; j >= 0; j--) {
-						if ((data[j].match(/(?<=^\s*?)(\t| {2})/g)?.length ?? -1) < indent) {
-							this.parent = this.plugin.cache[data[j].match(/(?<=\^pear-)[\da-f]{6}$/g)?.[0] ?? "uncached"];
-							break;
-						}
-					}
-				}
-			}
-		}
+	update(source: ViewUpdate) {
+
 	}
 
 	attachPreviewResult(element: HTMLElement) {
@@ -64,27 +43,33 @@ class Task {
 	}
 
 	render() {
-		if (this.element) {
-			for (const attachment of this.attachments) {
-				const result = attachment.render(this.element);
-				let appended = false;
-				this.element.childNodes.forEach((taskNode) => {
-					if (taskNode.nodeName == 'UL') appended = true;
-					if (!appended && taskNode.textContent != null && taskNode.textContent.match(result.replaced) != null) {
-						taskNode.textContent = taskNode.textContent.replace(result.replaced, '');
-						taskNode.after(result.element);
-						appended = true;
-					}
-				});
-			}
-			if (this.hidden) this.element.addClass('pear-hidden');
-			else this.element.removeClass('pear-hidden');
+		if (!this.element) return;
+
+		this.hidden = this.plugin.settings.hideCompleted && this.matchStatus(COMPLETE + "|" + REVOKED);
+		for (const attachment of this.attachments) {
+			attachment.render(this.element);
 		}
+		if (this.hidden) this.element.addClass('pear-hidden');
+		else this.element.removeClass('pear-hidden');
 	}
 
 	setStatus(status: string) {
-		this.plugin.app.workspace.activeEditor?.editor?.replaceRange(status, { line: this.line, ch: this.raw.search(STATUS_CONTENT)}, { line: this.line, ch: this.raw.search(STATUS_CONTENT) + 1});
-		this.update();
+		const editor = this.plugin.app.workspace.activeEditor?.editor;
+		editor?.processLines((line, lineText) => {
+			return lineText.match(/^\s*- [.] /g) != null ? lineText : null;
+		}, (line, lineText) => {
+			if (lineText == this.raw) return {
+				from: {
+					line: line,
+					ch: lineText.search(/(?<=\s*- \[).] /g)
+				},
+				text: status,
+				to: {
+					line: line,
+					ch: lineText.search(/(?<=\s*- \[.)] /g)
+				}
+			};
+		}, false);
 	}
 
 	getStatus(): string|null {
