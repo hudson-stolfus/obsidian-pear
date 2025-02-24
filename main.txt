@@ -1,0 +1,98 @@
+export default class PearPlugin extends Plugin {
+	settings: PearPluginSettings;
+
+	async onload() {
+		await this.loadSettings();
+		this.addSettingTab(new PearSettingTab(this.app, this));
+
+		this.registerView(VIEW_TODO_PREVIEW, (leaf: WorkspaceLeaf) => new TodoLeaf(this.settings, leaf));
+		this.addRibbonIcon('list-todo', 'Upcoming TODO', this.activateView.bind(this));
+
+		this.registerMarkdownPostProcessor((element, context) => {
+			const sectionInfo = context.getSectionInfo(element);
+			if (!sectionInfo) return;
+			let cache: {[key: string]: Task} = {};
+
+			for (const [line, lineText] of sectionInfo.text.split('\n').entries()) {
+				if (lineText.search(/^(\t| {2})*- \[.] /g) != -1) {
+					const queuedTask = new Task(crypto.createHash('sha256').update(line.toString() + JSON.stringify(this.app.workspace.getActiveViewOfType(MarkdownView)?.getState())).digest('base64'), lineText, this);
+					cache[queuedTask.hash] = queuedTask;
+				}
+			}
+
+			const taskEls = element.findAll('li.task-list-item');
+			for (const [index, taskEl] of taskEls.entries()) {
+				const queue = cache[crypto.createHash('sha256').update((sectionInfo.lineStart + Number(taskEl.getAttr('data-line') ?? -1)).toString() + JSON.stringify(this.app.workspace.getActiveViewOfType(MarkdownView)?.getState())).digest('base64')];
+				if (!queue) return;
+				queue.attachPreviewResult(taskEl);
+				queue.render();
+			}
+		});
+
+		this.registerInterval(window.setInterval(() => {
+
+		}, 1000));
+
+		this.registerEditorExtension(EditorView.updateListener.of((update): void => {
+			const { state, dispatch } = update.view;
+			let cache: {[key: number]: Task} = {};
+
+			if (this.app.workspace.activeEditor == null) return;
+
+			for (let i = 1; i <= state.doc.lines; i ++) {
+				if (state.doc.line(i).text.search(/^\s*- \[.] /g) != -1) {
+					cache[i] = new Task(crypto.createHash('sha256').update(i.toString() + JSON.stringify(this.app.workspace.getActiveViewOfType(MarkdownView)?.getState())).digest('base64'), state.doc.line(i).text, this);
+				}
+			}
+		}));
+
+		this.addCommand({
+			id: "mark-task-complete",
+			name: "Mark task complete",
+			hotkeys: [
+				{ key: 'x', modifiers: [ "Alt" ] } as Hotkey
+			],
+			editorCallback: (editor: Editor) => {
+				// for (let taskId in this.cache) {
+				// 	if (this.app.workspace.getActiveViewOfType(MarkdownView)?.file == this.cache[taskId].file && this.cache[taskId].line == editor.getCursor("head").line) {
+				// 		switch (this.cache[taskId].getStatus()) {
+				// 			case COMPLETE:
+				// 				this.cache[taskId].setStatus(DEFAULT);
+				// 				break;
+				// 			default:
+				// 				this.cache[taskId].setStatus(COMPLETE);
+				// 				break;
+				// 		}
+				// 	}
+				// }
+			},
+		});
+	}
+	async activateView() {
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TODO_PREVIEW);
+
+		if (leaves.length > 0) {
+		  	leaf = leaves[0];
+		} else {
+		  	leaf = this.app.workspace.getRightLeaf(false);
+		  	await leaf?.setViewState({ type: VIEW_TODO_PREVIEW, active: true });
+		}
+
+		if (leaf instanceof WorkspaceLeaf) {
+			this.app.workspace.revealLeaf(leaf);
+		}
+  	}
+
+	async onunload() {
+		await this.saveSettings();
+	}
+
+	async loadSettings() {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	}
+
+	async saveSettings() {
+		await this.saveData(Object.assign({}, this.settings));
+	}
+}

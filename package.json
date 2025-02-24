@@ -12,6 +12,7 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
+		"@types/js-yaml": "^4.0.9",
 		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
@@ -23,8 +24,12 @@
 	},
 	"dependencies": {
 		"crypto-hash": "^3.1.0",
+		"crypto-js": "^4.2.0",
 		"hash": "^0.2.1",
+		"js-yaml": "^4.1.0",
+		"markdown-wiki": "^0.0.1",
 		"node-pushnotifications": "^2.1.0",
-		"regexpp": "^3.2.0"
+		"regexpp": "^3.2.0",
+		"wikitext2markdown": "^0.0.1"
 	}
 }
