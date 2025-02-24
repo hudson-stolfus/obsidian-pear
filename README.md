@@ -2,6 +2,11 @@
 
 ![Obsidian Pear](banner.svg)
 
+<span style="font-size: 3em;">P</span>roductivity
+<span style="font-size: 3em;">E</span>vents
+<span style="font-size: 3em;">A</span>nd
+<span style="font-size: 3em;">R</span>esearch
+
 Obsidian pear is a productivity plugin developed for a straightforward experience, keeping track of all of your needs. Integrated into [Obsidian.md](https://obsidian.md/), the Pear Productivity plugin utilizes a flexibly and friendly format which works with all of your notes.
 
 > [!NOTE]
