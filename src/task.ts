@@ -1,10 +1,11 @@
-import {Attachment} from "./attachment";
-import {Deadline} from "./deadline";
+import {Attachment} from "./attachments/attachment";
+import {Deadline} from "./attachments/deadline";
 import PearPlugin from "./main";
 import {ViewUpdate} from "@codemirror/view";
 import * as yaml from 'js-yaml';
 import {moment} from "obsidian";
 import {indent} from "./util";
+import {Error} from "./attachments/error";
 
 const DEFAULT: string 		= ' ';
 const COMPLETE: string 		= 'x';
@@ -53,7 +54,7 @@ class Task {
 				}
 			}
 		} catch (e) {
-			console.error(e.message);
+			this.attachments.push(new Error(this, e));
 		}
 	}
 
@@ -99,6 +100,7 @@ class Task {
 					let child = Task.parseTask(clear, callback, plugin);
 					if (child) children.push(child);
 				} else {
+					console.log(nextLine.text.trimStart());
 					properties += nextLine.text.trimStart() + "\n";
 					clear(true);
 				}

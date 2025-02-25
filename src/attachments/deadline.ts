@@ -1,8 +1,6 @@
 import {Attachment} from "./attachment";
 import {moment} from "obsidian";
-import {COMPLETE, REVOKED, Task} from "./task";
-import PearPlugin from "./main";
-import {Moment} from "moment";
+import {Task} from "../task";
 
 export class Deadline extends Attachment {
 	public upcoming: boolean;

@@ -19,6 +19,15 @@
 	vertical-align: middle;
 	margin-inline-start: 0.6em;
 	gap: var(--size-4-1);
+	z-index: 10;
+}
+
+.pear-error {
+	--status-color: var(--text-error);
+}
+
+.pear-error:hover {
+	background: hsl(from var(--status-color) h s calc(l / 10)) !important;
 }
 
 .pear-dropdown-closed, .pear-dropdown-open {
@@ -60,7 +69,9 @@
 }
 
 .pear-overdue-far {
-	--status-color: hsla(from var(--color-red) h s l / 0.5);
+	--status-color: var(--color-red);
+	outline: 1px dashed var(--status-color);
+	opacity: 0.5;
 }
 
 .pear-upcoming {

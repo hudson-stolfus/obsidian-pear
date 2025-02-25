@@ -1,5 +1,5 @@
-import {Task} from "./task";
-import PearPlugin from "./main";
+import {Task} from "../task";
+import PearPlugin from "../main";
 
 export abstract class Attachment {
 
