@@ -5,6 +5,7 @@ export abstract class Attachment {
 
 	protected plugin: PearPlugin;
 	public element: HTMLElement;
+	public type: string = 'untyped';
 
 	protected constructor(public parent: Task) {
 		this.parent.attachments.push(this);
@@ -12,9 +13,9 @@ export abstract class Attachment {
 	}
 
 	render(task: HTMLElement) {
-		task.find('.pear-attachment')?.remove();
+		task.find(`.pear-attachment.pear-${this.type}`)?.remove();
 		this.element = task.createDiv({
-			cls: 'pear-attachment'
+			cls: ['pear-attachment', `pear-${this.type}`]
 		});
 		if (this.parent.hidden) this.element.addClass('pear-hidden');
 		task.append(this.element);

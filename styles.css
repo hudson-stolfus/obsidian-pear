@@ -30,6 +30,15 @@
 	background: hsl(from var(--status-color) h s calc(l / 10)) !important;
 }
 
+.pear-notes {
+	--status-color: var(--text-normal);
+	display: block;
+	height: unset;
+	margin: 0.5em 0;
+	padding: 0.5em 1em;
+	white-space: pre-wrap;
+}
+
 .pear-dropdown-closed, .pear-dropdown-open {
 	vertical-align: text-bottom;
 }

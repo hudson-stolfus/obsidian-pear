@@ -10,6 +10,7 @@ export class Deadline extends Attachment {
 
 	constructor(parent: Task, public timestamp: moment.Moment) {
 		super(parent);
+		this.type = 'date';
 		this.update();
 	}
 
@@ -24,7 +25,6 @@ export class Deadline extends Attachment {
 			this.parent.hidden = true;
 		}
 		this.display = this.timestamp.format(this.plugin.settings.dateFormats[0]) ?? "";
-		this.element.addClass('pear-date');
 		if (this.overdue) {
 			this.element.addClass('pear-overdue');
 			this.display = this.timestamp.fromNow().charAt(0).toUpperCase() + this.timestamp.fromNow().substring(1);

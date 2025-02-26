@@ -6,6 +6,7 @@ import * as yaml from 'js-yaml';
 import {moment} from "obsidian";
 import {indent} from "./util";
 import {Error} from "./attachments/error";
+import {Notes} from "./attachments/notes";
 
 const DEFAULT: string 		= ' ';
 const COMPLETE: string 		= 'x';
@@ -42,19 +43,22 @@ class Task {
 			construct: (data) => moment.duration(data)
 		});
 		const PEAR_SCHEMA = yaml.DEFAULT_SCHEMA.extend({ explicit: [DurationYamlType, TimeStampYamlType] });
+
 		try {
 			const taskYaml = yaml.load(yamlProperties, {schema: PEAR_SCHEMA}) as TaskData;
 			for (const property in taskYaml) {
 				switch (property) {
 					case 'due':
-						if (taskYaml.due) this.attachments.push(new Deadline(this, taskYaml.due));
+						if (taskYaml.due) new Deadline(this, taskYaml.due);
+						break;
+					case 'notes':
+						if (taskYaml.notes) new Notes(this, taskYaml.notes);
 						break;
 					default:
-						break;
 				}
 			}
 		} catch (e) {
-			this.attachments.push(new Error(this, e));
+			new Error(this, e);
 		}
 	}
 
@@ -100,7 +104,6 @@ class Task {
 					let child = Task.parseTask(clear, callback, plugin);
 					if (child) children.push(child);
 				} else {
-					console.log(nextLine.text.trimStart());
 					properties += nextLine.text.trimStart() + "\n";
 					clear(true);
 				}
