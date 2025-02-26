@@ -23,7 +23,7 @@ After enabling the plugin in `Community Plugins`, any task created is processed 
   due: !time 2025-02-25 23:59:59
   priority: 0
   estimate: !dur 00:20:00
-  notes: "Hello, YAML!"
+  notes: "Hello, YAML! I can use **Markdown** here too."
 ```
 That's it for now!
 
