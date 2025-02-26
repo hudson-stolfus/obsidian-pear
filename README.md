@@ -27,5 +27,8 @@ After enabling the plugin in `Community Plugins`, any task created is processed 
 ```
 That's it for now!
 
+## Upcoming
+In the future Pear will see many reasearch features for automatically summarizing notes.
+
 ## Contributing
 Any contributions are appreciated. Report [here](https://github.com/Hudson-Stolfus/obsidian-pear/issues) if you are missing something or have found a bug. Would love to see [what you can do](https://github.com/Hudson-Stolfus/obsidian-pear/fork) with what I have started.
