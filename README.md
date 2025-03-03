@@ -25,10 +25,22 @@ After enabling the plugin in `Community Plugins`, any task created is processed 
   estimate: !dur 00:20:00
   notes: "Hello, YAML! I can use **Markdown** here too."
 ```
+Embedding tasks with a filter is similar to Obsidian's native `query` functionality. The following block creates a callout filtering through tasks due between March 1, 2025 and March 3, 2025, with a note containing "Hello! World!" 
+```md
+	```pear
+	heading: My Embed
+	icon: calendar-check
+	source: 'path/to/myTODOFile'
+	due: !range
+		- !time 2025-03-01 00:00:00
+		- !time 2025-03-03 00:00:00
+	notes: Hello, World!
+	```
+```
 That's it for now!
 
 ## Upcoming
-In the future Pear will see many reasearch features for automatically summarizing notes.
+In the future Pear will see many research features for automatically summarizing notes.
 
 ## Contributing
 Any contributions are appreciated. Report [here](https://github.com/Hudson-Stolfus/obsidian-pear/issues) if you are missing something or have found a bug. Would love to see [what you can do](https://github.com/Hudson-Stolfus/obsidian-pear/fork) with what I have started.
