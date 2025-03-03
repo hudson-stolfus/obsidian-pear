@@ -6,6 +6,7 @@ export abstract class Attachment {
 	protected plugin: PearPlugin;
 	public element: HTMLElement;
 	public type: string = 'untyped';
+	public rendered: boolean = false;
 
 	protected constructor(public parent: Task) {
 		this.parent.attachments.push(this);
@@ -19,6 +20,7 @@ export abstract class Attachment {
 		});
 		if (this.parent.hidden) this.element.addClass('pear-hidden');
 		task.append(this.element);
+		this.rendered = true;
 	}
 
 }

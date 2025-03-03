@@ -20,7 +20,13 @@ export class Deadline extends Attachment {
 	}
 
 	render(task: HTMLElement) {
+		if (this.rendered) {
+			this.update();
+			return;
+		}
+
 		super.render(task);
+
 		if (this.timestamp > moment().add(this.plugin.settings.showPeriod.period, this.plugin.settings.showPeriod.unit)) {
 			this.parent.hidden = true;
 		}

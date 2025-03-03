@@ -4,7 +4,7 @@ import PearPlugin from "./main";
 import {ViewUpdate} from "@codemirror/view";
 import * as yaml from 'js-yaml';
 import {moment} from "obsidian";
-import {indent} from "./util";
+import {indent, PEAR_SCHEMA} from "./util";
 import {Error} from "./attachments/error";
 import {Notes} from "./attachments/notes";
 
@@ -19,44 +19,45 @@ const UNKNOWN: string 		= '?';
 const FORWARD: string 		= '>';
 const ANY: string 			= '.';
 
-interface TaskData {
-	created: moment.Moment|undefined;
-	due: moment.Moment|undefined;
-	priority: number|undefined;
-	estimate: moment.Duration|undefined;
-	notes: string|undefined;
+interface Filter {
+	status?: string[];
+	created?: { from: moment.Moment, to: moment.Moment };
+	due?: { from: moment.Moment, to: moment.Moment };
+	priority?: { from: number, to: number };
+	estimate?: { from: moment.Duration, to: moment.Duration };
+	notes?: string;
 }
 
-class Task {
+interface TaskData {
+	status: string;
+	created?: moment.Moment;
+	due?: moment.Moment;
+	priority?: number;
+	estimate?: moment.Duration;
+	notes?: string;
+}
+
+
+class Task implements TaskData {
 
 	public hidden: boolean = false;
 	public attachments: Attachment[] = [];
 	public element: HTMLElement|undefined;
 
-	constructor(public title: string, public yamlProperties: string, public rank: number, public children: Task[], public plugin: PearPlugin) {
-		const TimeStampYamlType = new yaml.Type('!time', {
-			kind: 'scalar',
-			construct: (data) => moment(data)
-		});
-		const DurationYamlType = new yaml.Type('!dur', {
-			kind: 'scalar',
-			construct: (data) => moment.duration(data)
-		});
-		const PEAR_SCHEMA = yaml.DEFAULT_SCHEMA.extend({ explicit: [DurationYamlType, TimeStampYamlType] });
+	status: string;
+	created?: moment.Moment;
+	due?: moment.Moment;
+	priority?: number;
+	estimate?: moment.Duration;
+	notes?: string;
+
+	constructor(public title: string, public rank: number, public children: Task[], yamlProperties: string, public plugin: PearPlugin) {
+		this.status = this.getStatus();
 
 		try {
-			const taskYaml = yaml.load(yamlProperties, {schema: PEAR_SCHEMA}) as TaskData;
-			for (const property in taskYaml) {
-				switch (property) {
-					case 'due':
-						if (taskYaml.due) new Deadline(this, taskYaml.due);
-						break;
-					case 'notes':
-						if (taskYaml.notes) new Notes(this, taskYaml.notes);
-						break;
-					default:
-				}
-			}
+			Object.assign(this, <TaskData>yaml.load(yamlProperties, {schema: PEAR_SCHEMA}));
+			if (this.due) new Deadline(this, this.due);
+			if (this.notes) new Notes(this, this.notes);
 		} catch (e) {
 			new Error(this, e);
 		}
@@ -109,7 +110,7 @@ class Task {
 				}
 				nextLine = clear(false);
 			}
-			let result = new Task(line.text.trimStart(), properties, indent(line.text), children, plugin);
+			let result = new Task(line.text.trimStart(), indent(line.text), children, properties, plugin);
 			callback(result);
 			return result;
 		}
@@ -140,8 +141,7 @@ class Task {
 		for (const attachment of this.attachments) {
 			attachment.render(this.element);
 		}
-		if (this.hidden) this.element.addClass('pear-hidden');
-		else this.element.removeClass('pear-hidden');
+		this.element.toggleClass('pear-hidden', this.hidden)
 	}
 
 	/**
@@ -174,9 +174,9 @@ class Task {
 	 * Status refers to the character inside the markdown checkbox; marked with 'x' here: `- [x] `
 	 * @returns {string|null} The string value of the task status. If the status could not be found, returns null.
 	 **/
-	getStatus(): string|null {
+	getStatus(): string {
 		const result = this.title.match(/(?<=^\s*- \[).(?=] )/g);
-		if (!result) return null;
+		if (!result) return " ";
 		return result[0];
 	}
 
@@ -190,6 +190,8 @@ class Task {
 		const result = this.title.match(new RegExp(/(?<=^\s*- \[)/gm.source + status.join('|') + /(?=] )/gm.source));
 		return result != null;
 	}
+
 }
 
 export { DEFAULT, COMPLETE, IN_PROGRESS, SCHEDULING, IMPORTANT, STARRED, REVOKED, UNKNOWN, FORWARD, ANY, Task };
+export type { Filter };
