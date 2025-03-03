@@ -23,9 +23,12 @@ After enabling the plugin in `Community Plugins`, any task created is processed 
   due: !time 2025-02-25 23:59:59
   priority: 0
   estimate: !dur 00:20:00
-  notes: "Hello, YAML!"
+  notes: "Hello, YAML! I can use **Markdown** here too."
 ```
 That's it for now!
+
+## Upcoming
+In the future Pear will see many reasearch features for automatically summarizing notes.
 
 ## Contributing
 Any contributions are appreciated. Report [here](https://github.com/Hudson-Stolfus/obsidian-pear/issues) if you are missing something or have found a bug. Would love to see [what you can do](https://github.com/Hudson-Stolfus/obsidian-pear/fork) with what I have started.
