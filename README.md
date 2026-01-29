@@ -11,7 +11,7 @@
 Obsidian pear is a productivity plugin developed for a straightforward experience, keeping track of all of your needs. Integrated into [Obsidian.md](https://obsidian.md/), the Pear Productivity plugin utilizes a flexibly and friendly format which works with all of your notes.
 
 > [!NOTE]
-> This plugin is maintained by a single student
+> This plugin is no longer actively maintained. I'm not even sure if it works because I dont use it anymore.
 > - There is no guarantee that issues will be addressed in a timely manner
 > - Feel free to fork or [contribute](#contributing)
 
@@ -44,3 +44,4 @@ In the future Pear will see many research features for automatically summarizing
 
 ## Contributing
 Any contributions are appreciated. Report [here](https://github.com/Hudson-Stolfus/obsidian-pear/issues) if you are missing something or have found a bug. Would love to see [what you can do](https://github.com/Hudson-Stolfus/obsidian-pear/fork) with what I have started.
+
